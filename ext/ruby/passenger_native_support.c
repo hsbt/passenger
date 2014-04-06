@@ -27,12 +27,16 @@
 	/* Ruby 1.9 */
 	#include "ruby/intern.h"
 	#include "ruby/io.h"
+#ifdef HAVE_RB_THREAD_CALL_WITHOUT_GVL
+	#include "ruby/thread.h"
+#endif
 #else
 	/* Ruby 1.8 */
 	#include "rubysig.h"
 	#include "rubyio.h"
 	#include "version.h"
 #endif
+
 #ifdef HAVE_RUBY_VERSION_H
 	#include "ruby/version.h"
 #endif
@@ -320,8 +324,11 @@ f_generic_writev(VALUE fd, VALUE *array_of_components, unsigned int count) {
 				writev_wrapper_data.filedes = fd_num;
 				writev_wrapper_data.iov     = groups[i].io_vectors;
 				writev_wrapper_data.iovcnt  = groups[i].count;
-				#ifdef HAVE_RB_THREAD_IO_BLOCKING_REGION
+				#if defined(HAVE_RB_THREAD_IO_BLOCKING_REGION)
 					ret = (int) rb_thread_io_blocking_region(writev_wrapper,
+						&writev_wrapper_data, fd_num);
+				#elif defined(HAVE_RB_THREAD_CALL_WITHOUT_GVL)
+					ret = (int) rb_thread_call_without_gvl(writev_wrapper,
 						&writev_wrapper_data, fd_num);
 				#else
 					ret = (int) rb_thread_blocking_region(writev_wrapper,
@@ -745,6 +752,9 @@ fs_watcher_read_byte_from_fd(VALUE _arg) {
 		data->error = errno;
 	#elif defined(HAVE_RB_THREAD_IO_BLOCKING_REGION)
 		rb_thread_io_blocking_region(fs_watcher_read_byte_from_fd_wrapper,
+			data, data->fd);
+	#elif defined(HAVE_RB_THREAD_CALL_WITHOUT_GVL)
+		rb_thread_call_without_gvl((void *(*)(void *))fs_watcher_read_byte_from_fd_wrapper,
 			data, data->fd);
 	#else
 		rb_thread_blocking_region(fs_watcher_read_byte_from_fd_wrapper,

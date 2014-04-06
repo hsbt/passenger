@@ -39,6 +39,7 @@ have_header('ruby/version.h')
 have_header('ruby/io.h')
 have_var('ruby_version')
 have_func('rb_thread_io_blocking_region')
+have_header('ruby/thread.h') && have_func('rb_thread_call_without_gvl', 'ruby/thread.h')
 
 with_cflags($CFLAGS) do
 	create_makefile('passenger_native_support')
